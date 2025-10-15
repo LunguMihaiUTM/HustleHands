@@ -8,7 +8,7 @@ import com.google.mediapipe.tasks.core.BaseOptions
 import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarker
 import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarkerResult
-import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
+import java.util.concurrent.atomic.AtomicBoolean
 
 class HandLandmarkerHelper(
     context: Context,
@@ -17,6 +17,7 @@ class HandLandmarkerHelper(
 ) {
 
     private val handLandmarker: HandLandmarker
+    private val isProcessing = AtomicBoolean(false)
 
     init {
         val baseOptions = BaseOptions.builder()
@@ -28,9 +29,12 @@ class HandLandmarkerHelper(
             .setRunningMode(RunningMode.LIVE_STREAM)
             .setNumHands(2)
             .setResultListener { result, _ ->
-                if (result != null) {
-                    onResult(result)
-                }
+                isProcessing.set(false)
+                if (result != null) onResult(result)
+            }
+            .setErrorListener { e ->
+                isProcessing.set(false)
+                onError(Exception(e))
             }
             .build()
 
@@ -38,15 +42,24 @@ class HandLandmarkerHelper(
     }
 
     fun detectAsync(bitmap: Bitmap, timestampMs: Long) {
+        if (!isProcessing.compareAndSet(false, true)) {
+            // Don't recycle here; let caller manage it
+            return
+        }
         try {
             val mpImage: MPImage = BitmapImageBuilder(bitmap).build()
             handLandmarker.detectAsync(mpImage, timestampMs)
+            // DON'T recycle bitmap here - MediaPipe is still processing it asynchronously
         } catch (e: Exception) {
+            isProcessing.set(false)
             onError(e)
         }
     }
 
     fun close() {
-        handLandmarker.close()
+        try {
+            handLandmarker.close()
+        } catch (_: Throwable) {
+        }
     }
 }
