@@ -5,26 +5,20 @@ import android.graphics.Matrix
 import android.util.Log
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
+import androidx.camera.core.Logger.e
 import com.dog.hustlehands.data.mediapipe.HandLandmarkerHelper
+import kotlin.math.min
 
 class CameraAnalyzer(
     private val handLandmarkerHelper: HandLandmarkerHelper
 ) : ImageAnalysis.Analyzer {
 
-//    private var frameCount = 0
-//    private var lastLogTime = System.currentTimeMillis()
-
+    @Volatile
+    var shouldSaveFrame = false //
 
     override fun analyze(imageProxy: ImageProxy) {
-//        frameCount++
-//        val now = System.currentTimeMillis()
-//        if (now - lastLogTime >= 1000) {
-//            Log.d("FPS", "Camera frames per second: $frameCount")
-//            frameCount = 0
-//            lastLogTime = now
-//        }
         try {
-            val bitmap = imageProxy.toBitmap() ?: return
+            val bitmap = imageProxy.toBitmap()
             val rotationDegrees = imageProxy.imageInfo.rotationDegrees
 
             val rotated = if (rotationDegrees != 0) {
@@ -32,11 +26,39 @@ class CameraAnalyzer(
             } else {
                 bitmap
             }
+            val square = cropToSquare(rotated)
 
-            handLandmarkerHelper.detectAsync(rotated, System.currentTimeMillis())
+            if (shouldSaveFrame) {
+                shouldSaveFrame = false
+                saveBitmapToStorage(square)
+            }
+
+            handLandmarkerHelper.detectAsync(square, System.currentTimeMillis())
         } catch (_: Exception) {
+            Log.e("CameraAnalyzer", "Analysis failed")
         } finally {
             imageProxy.close()
+        }
+    }
+
+    private fun saveBitmapToStorage(bitmap: Bitmap) {
+        try {
+            val picturesDir = android.os.Environment.getExternalStoragePublicDirectory(
+                android.os.Environment.DIRECTORY_PICTURES
+            )
+            if (!picturesDir.exists()) picturesDir.mkdirs()
+
+            val filename = "frame_${System.currentTimeMillis()}.jpg"
+            val file = java.io.File(picturesDir, filename)
+            val fos = java.io.FileOutputStream(file)
+
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 90, fos)
+            fos.flush()
+            fos.close()
+
+            android.util.Log.d("CameraAnalyzer", "Frame saved at: ${file.absolutePath}")
+        } catch (e: Exception) {
+            android.util.Log.e("CameraAnalyzer", "Failed to save frame: ${e.message}", e)
         }
     }
 
@@ -50,15 +72,11 @@ class CameraAnalyzer(
         return rotated
     }
 
-    private fun ImageProxy.toBitmap(): Bitmap? {
-        return try {
-            // Create bitmap in ARGB_8888 format (same as the camera output)
-            val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-            // Direct buffer copy - NO JPEG compression, NO YUV conversion
-            bitmap.copyPixelsFromBuffer(planes[0].buffer)
-            bitmap
-        } catch (_: Exception) {
-            null
-        }
+    private fun cropToSquare(bitmap: Bitmap): Bitmap {
+        val size = min(bitmap.width, bitmap.height)
+        val offsetX = (bitmap.width - size) / 2
+        val offsetY = (bitmap.height - size) / 2
+        return Bitmap.createBitmap(bitmap, offsetX, offsetY, size, size)
     }
+
 }
