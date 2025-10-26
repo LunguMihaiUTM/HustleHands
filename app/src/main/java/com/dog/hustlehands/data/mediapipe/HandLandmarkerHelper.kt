@@ -2,7 +2,6 @@ package com.dog.hustlehands.data.mediapipe
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.util.Log
 import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.framework.image.MPImage
 import com.google.mediapipe.tasks.core.BaseOptions
@@ -44,12 +43,13 @@ class HandLandmarkerHelper(
 
     fun detectAsync(bitmap: Bitmap, timestampMs: Long) {
         if (!isProcessing.compareAndSet(false, true)) {
+            // Don't recycle here; let caller manage it
             return
         }
         try {
-            Log.d("HandLandmarkerHelper", "Bitmap size: ${bitmap.width}x${bitmap.height}")
             val mpImage: MPImage = BitmapImageBuilder(bitmap).build()
             handLandmarker.detectAsync(mpImage, timestampMs)
+            // DON'T recycle bitmap here - MediaPipe is still processing it asynchronously
         } catch (e: Exception) {
             isProcessing.set(false)
             onError(e)
