@@ -13,8 +13,10 @@ import com.dog.hustlehands.domain.model.DomainHandLandmark
 class OverlayView(context: Context, attrs: AttributeSet? = null) : View(context, attrs) {
 
     private var landmarks: List<DomainHandLandmark> = emptyList()
-    private var canvasWidth: Float = 1f
-    private var canvasHeight: Float = 1f
+
+    private var imageWidth = 1f
+    private var imageHeight = 1f
+    private var verticalOffset = 0f
 
     private val linePaint = Paint().apply {
         color = Color.GREEN
@@ -30,6 +32,13 @@ class OverlayView(context: Context, attrs: AttributeSet? = null) : View(context,
         isAntiAlias = true
     }
 
+    fun setTransform(viewWidth: Float, imageHeight: Float, offsetY: Float) {
+        this.imageWidth = viewWidth
+        this.imageHeight = imageHeight
+        this.verticalOffset = offsetY
+        invalidate()
+    }
+
     fun setLandmarks(newLandmarks: List<DomainHandLandmark>) {
         landmarks = newLandmarks
         invalidate()
@@ -37,9 +46,6 @@ class OverlayView(context: Context, attrs: AttributeSet? = null) : View(context,
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-
-        canvasWidth = width.toFloat()
-        canvasHeight = height.toFloat()
 
         if (landmarks.isEmpty()) return
 
@@ -49,17 +55,18 @@ class OverlayView(context: Context, attrs: AttributeSet? = null) : View(context,
             val color = if (handIndex == 0) Color.GREEN else Color.BLUE
             linePaint.color = color
 
+            // raw points with corrected scale and offset
             handLandmarks.forEach { landmark ->
-                // Scale from normalized (0-1) to canvas, accounting for aspect ratio
-                val scaledX = landmark.x * canvasWidth
-                val scaledY = landmark.y * canvasHeight
-
+                val scaledX = landmark.x * imageWidth
+                val scaledY = landmark.y * imageHeight + verticalOffset
                 canvas.drawPoint(scaledX, scaledY, pointPaint)
             }
 
+            //draw lines with the same transform
             drawHandConnections(canvas, handLandmarks, linePaint)
         }
     }
+
 
     private fun drawHandConnections(
         canvas: Canvas,
@@ -78,18 +85,17 @@ class OverlayView(context: Context, attrs: AttributeSet? = null) : View(context,
         )
 
         connections.forEach { (start, end) ->
-            val startLandmark = landmarkMap[start]
-            val endLandmark = landmarkMap[end]
+            val a = landmarkMap[start]
+            val b = landmarkMap[end]
+            if (a != null && b != null) {
+                val startX = a.x * imageWidth
+                val startY = a.y * imageHeight + verticalOffset
+                val endX = b.x * imageWidth
+                val endY = b.y * imageHeight + verticalOffset
 
-            if (startLandmark != null && endLandmark != null) {
-                canvas.drawLine(
-                    startLandmark.x * canvasWidth,
-                    startLandmark.y * canvasHeight,
-                    endLandmark.x * canvasWidth,
-                    endLandmark.y * canvasHeight,
-                    paint
-                )
+                canvas.drawLine(startX, startY, endX, endY, paint)
             }
         }
     }
+
 }

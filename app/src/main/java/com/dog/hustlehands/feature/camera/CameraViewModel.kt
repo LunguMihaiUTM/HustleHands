@@ -3,6 +3,7 @@ package com.dog.hustlehands.feature.camera
 import com.dog.hustlehands.base.BaseViewModel
 import com.dog.hustlehands.feature.camera.contract.CameraContract
 
+// feature/camera/CameraViewModel.kt
 class CameraViewModel :
     BaseViewModel<CameraContract.State, CameraContract.Event, CameraContract.Action>(
         CameraContract.State()
@@ -12,6 +13,12 @@ class CameraViewModel :
         when (event) {
             is CameraContract.Event.Initialize -> {
                 updateState { it.copy(isLoading = false, error = null) }
+            }
+            is CameraContract.Event.CameraReady -> {
+                updateState { it.copy(isCameraReady = true) }
+            }
+            is CameraContract.Event.CaptureFrame -> {
+                // Handle frame capture logic
             }
             is CameraContract.Event.LandmarksUpdated -> {
                 updateState { it.copy(landmarks = event.landmarks, error = null) }
