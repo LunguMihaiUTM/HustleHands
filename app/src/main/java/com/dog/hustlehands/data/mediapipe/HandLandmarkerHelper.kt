@@ -51,14 +51,12 @@ class HandLandmarkerHelper(
 
     fun detectAsync(bitmap: Bitmap, timestampMs: Long) {
         if (!isProcessing.compareAndSet(false, true)) {
-            // Don't recycle here; let caller manage it
             return
         }
         try {
             currentStartTime = timestampMs
             val mpImage: MPImage = BitmapImageBuilder(bitmap).build()
             handLandmarker.detectAsync(mpImage, timestampMs)
-            // DON'T recycle bitmap here - MediaPipe is still processing it asynchronously
         } catch (e: Exception) {
             isProcessing.set(false)
             onError(e)
