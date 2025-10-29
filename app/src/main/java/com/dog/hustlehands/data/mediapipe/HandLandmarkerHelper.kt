@@ -2,10 +2,11 @@ package com.dog.hustlehands.data.mediapipe
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.util.Log
 import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.framework.image.MPImage
 import com.google.mediapipe.tasks.core.BaseOptions
+import com.google.mediapipe.tasks.core.Delegate
+import android.util.Log
 import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarker
 import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarkerResult
@@ -13,16 +14,19 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 class HandLandmarkerHelper(
     context: Context,
-    private val onResult: (HandLandmarkerResult) -> Unit,
+    private val onResult: (HandLandmarkerResult, Long) -> Unit,
     private val onError: (Exception) -> Unit = {}
 ) {
 
     private val handLandmarker: HandLandmarker
     private val isProcessing = AtomicBoolean(false)
+    private var currentStartTime = 0L
+
 
     init {
         val baseOptions = BaseOptions.builder()
             .setModelAssetPath("hand_landmarker.task")
+            .setDelegate(Delegate.GPU)
             .build()
 
         val options = HandLandmarker.HandLandmarkerOptions.builder()
@@ -30,8 +34,11 @@ class HandLandmarkerHelper(
             .setRunningMode(RunningMode.LIVE_STREAM)
             .setNumHands(2)
             .setResultListener { result, _ ->
+                val mlInferenceTime = System.currentTimeMillis() - currentStartTime
+                Log.d("PIPELINE_TIMING", "ML inference took: ${mlInferenceTime}ms")
+
                 isProcessing.set(false)
-                if (result != null) onResult(result)
+                if (result != null) onResult(result, currentStartTime)
             }
             .setErrorListener { e ->
                 isProcessing.set(false)
@@ -47,7 +54,7 @@ class HandLandmarkerHelper(
             return
         }
         try {
-            Log.d("HandLandmarkerHelper", "Bitmap size: ${bitmap.width}x${bitmap.height}")
+            currentStartTime = timestampMs
             val mpImage: MPImage = BitmapImageBuilder(bitmap).build()
             handLandmarker.detectAsync(mpImage, timestampMs)
         } catch (e: Exception) {
