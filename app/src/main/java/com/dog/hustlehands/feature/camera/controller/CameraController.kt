@@ -36,12 +36,13 @@ fun CameraController() {
     val helper = remember(context) {
         HandLandmarkerHelper(
             context = context,
-            onResult = { result ->
+            onResult = { result, startTime ->
                 // ✅ FAST PATH: Update overlay directly without ViewModel
                 overlayViewRef.value?.let { overlay ->
                     val landmarks = result.toDomain()
-                    overlay.post { overlay.setLandmarks(landmarks) }
-                }
+                    overlay.post {
+                        overlay.setLandmarks(landmarks, startTime)
+                    }                }
             },
             onError = { e ->
                 vm.sendEvent(CameraContract.Event.DetectionError(e.message ?: "Hand detection error"))

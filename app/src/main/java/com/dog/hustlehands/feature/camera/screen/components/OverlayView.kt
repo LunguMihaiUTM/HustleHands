@@ -13,6 +13,8 @@ import com.dog.hustlehands.domain.model.DomainHandLandmark
 class OverlayView(context: Context, attrs: AttributeSet? = null) : View(context, attrs) {
 
     private var landmarks: List<DomainHandLandmark> = emptyList()
+    private var endToEndStartTime = 0L
+
 
     private var imageWidth = 1f
     private var imageHeight = 1f
@@ -39,13 +41,18 @@ class OverlayView(context: Context, attrs: AttributeSet? = null) : View(context,
         invalidate()
     }
 
-    fun setLandmarks(newLandmarks: List<DomainHandLandmark>) {
+    fun setLandmarks(newLandmarks: List<DomainHandLandmark>, startTime: Long = 0L) {
         landmarks = newLandmarks
+        endToEndStartTime = startTime
+
         invalidate()
     }
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
+
+        val drawStartTime = System.currentTimeMillis()
+
 
         if (landmarks.isEmpty()) return
 
@@ -64,6 +71,17 @@ class OverlayView(context: Context, attrs: AttributeSet? = null) : View(context,
 
             //draw lines with the same transform
             drawHandConnections(canvas, handLandmarks, linePaint)
+        }
+
+        val drawTime = System.currentTimeMillis() - drawStartTime
+        Log.d("PIPELINE_TIMING", "Drawing took: ${drawTime}ms")
+
+        if (endToEndStartTime > 0) {
+            val totalEndToEndTime = System.currentTimeMillis() - endToEndStartTime
+            Log.w(
+                "END_TO_END_TIMING",
+                "🔥 COMPLETE PIPELINE: Image→Model→Screen took: ${totalEndToEndTime}ms"
+            )
         }
     }
 

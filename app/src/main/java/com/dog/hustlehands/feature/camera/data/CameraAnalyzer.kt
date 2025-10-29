@@ -5,7 +5,6 @@ import android.graphics.Matrix
 import android.util.Log
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
-import androidx.camera.core.Logger.e
 import com.dog.hustlehands.data.mediapipe.HandLandmarkerHelper
 import kotlin.math.min
 
@@ -18,6 +17,9 @@ class CameraAnalyzer(
 
     override fun analyze(imageProxy: ImageProxy) {
         try {
+            // ✅ START: End-to-end timing measurement
+            val endToEndStartTime = System.currentTimeMillis()
+
             val bitmap = imageProxy.toBitmap()
             val rotationDegrees = imageProxy.imageInfo.rotationDegrees
 
@@ -33,7 +35,12 @@ class CameraAnalyzer(
                 saveBitmapToStorage(square)
             }
 
-            handLandmarkerHelper.detectAsync(square, System.currentTimeMillis())
+            // ✅ Pass the start timestamp to track complete pipeline
+            handLandmarkerHelper.detectAsync(square, endToEndStartTime)
+
+            val preprocessingTime = System.currentTimeMillis() - endToEndStartTime
+            Log.d("PIPELINE_TIMING", "Image preprocessing took: ${preprocessingTime}ms")
+
         } catch (_: Exception) {
             Log.e("CameraAnalyzer", "Analysis failed")
         } finally {
